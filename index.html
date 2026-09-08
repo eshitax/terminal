@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Terminal · Node.js child_process</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Fira Code', 'Menlo', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
+        }
+        body {
+            background: #0c0c0c;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .terminal-container {
+            background: #1e1e2e;
+            border-radius: 18px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px #3a3a4a inset;
+            width: 100%;
+            max-width: 900px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+        .terminal-header {
+            background: #2a2a3a;
+            padding: 14px 22px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #3d3d50;
+        }
+        .terminal-header .dots {
+            display: flex;
+            gap: 10px;
+        }
+        .terminal-header .dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            transition: 0.15s;
+        }
+        .dot.red { background: #ff5f56; }
+        .dot.yellow { background: #ffbd2e; }
+        .dot.green { background: #27c93f; }
+        .terminal-header .title {
+            color: #cdd6f4;
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            margin-left: 10px;
+            opacity: 0.8;
+            user-select: none;
+        }
+        .terminal-body {
+            padding: 18px 20px 22px 20px;
+            background: #14141e;
+            min-height: 380px;
+            max-height: 600px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .terminal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .terminal-body::-webkit-scrollbar-track {
+            background: #1a1a2a;
+            border-radius: 10px;
+        }
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: #4a4a6a;
+            border-radius: 10px;
+        }
+        .output-line {
+            color: #cdd6f4;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 2px;
+        }
+        .output-line.error {
+            color: #f28b8b;
+        }
+        .output-line.system {
+            color: #89b4fa;
+            font-style: italic;
+        }
+        .input-line {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+            border-top: 1px solid #2e2e40;
+            padding-top: 12px;
+        }
+        .prompt {
+            color: #a6e3a1;
+            font-weight: 600;
+            margin-right: 12px;
+            font-size: 1rem;
+            user-select: none;
+        }
+        #command-input {
+            background: transparent;
+            border: none;
+            color: #cdd6f4;
+            font-size: 0.95rem;
+            font-family: inherit;
+            flex: 1;
+            outline: none;
+            caret-color: #f9e2af;
+            padding: 4px 0;
+        }
+        #command-input::placeholder {
+            color: #5a5a7a;
+            font-style: italic;
+            font-weight: 300;
+        }
+        .status-bar {
+            background: #1a1a2a;
+            padding: 8px 20px;
+            border-top: 1px solid #2d2d40;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 16px;
+            color: #6c6c8a;
+            font-size: 0.75rem;
+            letter-spacing: 0.3px;
+        }
+        .status-bar span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #6c6c8a;
+            border-radius: 50%;
+        }
+        .status-dot.active {
+            background: #7edf7e;
+            box-shadow: 0 0 6px #7edf7e;
+        }
+        .btn-clear {
+            background: #2d2d42;
+            border: none;
+            color: #b0b0d0;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-clear:hover {
+            background: #3e3e5a;
+            color: #ffffff;
+        }
+        .btn-clear:active {
+            transform: scale(0.94);
+        }
+        @media (max-width: 550px) {
+            .terminal-body { padding: 14px; min-height: 300px; }
+            .terminal-header .title { font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal-container">
+    <!-- header -->
+    <div class="terminal-header">
+        <div class="dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+        </div>
+        <span class="title">⚡ web-terminal · child_process</span>
+    </div>
+
+    <!-- terminal output -->
+    <div class="terminal-body" id="terminalOutput">
+        <div class="output-line system">🔌 terminal ready — type a command (e.g. <span style="color:#f9e2af;">ls</span> or <span style="color:#f9e2af;">echo hello</span>)</div>
+        <div class="output-line system">📡 using Node.js child_process.spawn</div>
+    </div>
+
+    <!-- input row -->
+    <div class="input-line">
+        <span class="prompt">$</span>
+        <input type="text" id="command-input" placeholder="enter command …" autofocus spellcheck="false" autocomplete="off">
+    </div>
+
+    <!-- status bar -->
+    <div class="status-bar">
+        <span><span class="status-dot active"></span> connected</span>
+        <span>pid: <span id="pidDisplay">—</span></span>
+        <button class="btn-clear" id="clearBtn">clear</button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // DOM refs
+        const outputEl = document.getElementById('terminalOutput');
+        const inputEl = document.getElementById('command-input');
+        const clearBtn = document.getElementById('clearBtn');
+        const pidDisplay = document.getElementById('pidDisplay');
+
+        // helper: append a line to terminal
+        function appendLine(text, type = 'output') {
+            const line = document.createElement('div');
+            line.className = `output-line ${type}`;
+            line.textContent = text;
+            outputEl.appendChild(line);
+            // auto-scroll
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        // clear terminal (keep system messages)
+        function clearTerminal() {
+            // remove all child nodes except the first two "system" lines
+            while (outputEl.children.length > 2) {
+                outputEl.removeChild(outputEl.lastChild);
+            }
+        }
+
+        // show pid (from server)
+        async function fetchPid() {
+            try {
+                const res = await fetch('/api/pid');
+                const data = await res.json();
+                if (data.pid) pidDisplay.textContent = data.pid;
+            } catch (_) { /* ignore */ }
+        }
+
+        // execute command via server
+        async function executeCommand(cmd) {
+            if (!cmd.trim()) return;
+
+            // show command in terminal (local echo)
+            appendLine(`$ ${cmd}`, 'output');
+
+            // disable input while processing
+            inputEl.disabled = true;
+            inputEl.placeholder = '⏳ executing …';
+
+            try {
+                const response = await fetch('/api/exec', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // output
+                    if (result.stdout && result.stdout.length > 0) {
+                        // split by newline to preserve formatting
+                        const lines = result.stdout.split('\n');
+                        for (let line of lines) {
+                            if (line) appendLine(line, 'output');
+                            else appendLine('', 'output'); // preserve empty lines
+                        }
+                    }
+                    // stderr (if any)
+                    if (result.stderr && result.stderr.length > 0) {
+                        const errLines = result.stderr.split('\n');
+                        for (let line of errLines) {
+                            if (line) appendLine(`❯ ${line}`, 'error');
+                            else appendLine('', 'error');
+                        }
+                    }
+                    // show exit code if non-zero and no stderr (supplement)
+                    if (result.exitCode !== undefined && result.exitCode !== 0 && !result.stderr) {
+                        appendLine(`⚠️  exit code: ${result.exitCode}`, 'error');
+                    }
+                } else {
+                    // http error (4xx/5xx)
+                    appendLine(`⚠️  server error: ${result.error || 'unknown'}`, 'error');
+                }
+            } catch (err) {
+                appendLine(`⚠️  network error: ${err.message || 'failed to reach server'}`, 'error');
+            } finally {
+                // re-enable input
+                inputEl.disabled = false;
+                inputEl.placeholder = 'enter command …';
+                inputEl.value = '';
+                inputEl.focus();
+                // scroll to bottom
+                outputEl.scrollTop = outputEl.scrollHeight;
+            }
+        }
+
+        // --- event listeners ---
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const cmd = inputEl.value;
+                if (cmd.trim()) {
+                    executeCommand(cmd);
+                } else {
+                    // empty command: just newline
+                    appendLine('', 'output');
+                    inputEl.value = '';
+                }
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            clearTerminal();
+        });
+
+        // click on terminal focuses input
+        outputEl.addEventListener('click', () => {
+            inputEl.focus();
+        });
+
+        // fetch PID on load
+        window.addEventListener('load', () => {
+            inputEl.focus();
+            fetchPid();
+        });
+
+        // extra: if user clicks anywhere on container, focus input
+        document.querySelector('.terminal-container').addEventListener('click', (e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                inputEl.focus();
+            }
+        });
+
+        // keep pid updated (every 10s)
+        setInterval(fetchPid, 10000);
+    })();
+</script>
+</body>
+</html>
