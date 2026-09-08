@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Terminal · Node.js child_process</title>
+    <title>Web Terminal · Python Flask</title>
     <style>
         * {
             margin: 0;
@@ -93,6 +93,9 @@
             color: #89b4fa;
             font-style: italic;
         }
+        .output-line.success {
+            color: #a6e3a1;
+        }
         .input-line {
             display: flex;
             align-items: center;
@@ -123,17 +126,32 @@
             font-style: italic;
             font-weight: 300;
         }
+        #command-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         .status-bar {
             background: #1a1a2a;
             padding: 8px 20px;
             border-top: 1px solid #2d2d40;
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
-            gap: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
             color: #6c6c8a;
             font-size: 0.75rem;
             letter-spacing: 0.3px;
+        }
+        .status-bar .left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .status-bar .right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         .status-bar span {
             display: flex;
@@ -172,6 +190,8 @@
         @media (max-width: 550px) {
             .terminal-body { padding: 14px; min-height: 300px; }
             .terminal-header .title { font-size: 0.75rem; }
+            .status-bar { flex-direction: column; align-items: stretch; }
+            .status-bar .left, .status-bar .right { justify-content: center; }
         }
     </style>
 </head>
@@ -185,13 +205,13 @@
             <span class="dot yellow"></span>
             <span class="dot green"></span>
         </div>
-        <span class="title">⚡ web-terminal · child_process</span>
+        <span class="title">🐍 web-terminal · Python Flask</span>
     </div>
 
     <!-- terminal output -->
     <div class="terminal-body" id="terminalOutput">
         <div class="output-line system">🔌 terminal ready — type a command (e.g. <span style="color:#f9e2af;">ls</span> or <span style="color:#f9e2af;">echo hello</span>)</div>
-        <div class="output-line system">📡 using Node.js child_process.spawn</div>
+        <div class="output-line system">📡 using Python subprocess</div>
     </div>
 
     <!-- input row -->
@@ -202,9 +222,14 @@
 
     <!-- status bar -->
     <div class="status-bar">
-        <span><span class="status-dot active"></span> connected</span>
-        <span>pid: <span id="pidDisplay">—</span></span>
-        <button class="btn-clear" id="clearBtn">clear</button>
+        <div class="left">
+            <span><span class="status-dot active"></span> connected</span>
+            <span>pid: <span id="pidDisplay">—</span></span>
+            <span>platform: <span id="platformDisplay">—</span></span>
+        </div>
+        <div class="right">
+            <button class="btn-clear" id="clearBtn">clear</button>
+        </div>
     </div>
 </div>
 
@@ -215,6 +240,7 @@
         const inputEl = document.getElementById('command-input');
         const clearBtn = document.getElementById('clearBtn');
         const pidDisplay = document.getElementById('pidDisplay');
+        const platformDisplay = document.getElementById('platformDisplay');
 
         // helper: append a line to terminal
         function appendLine(text, type = 'output') {
@@ -234,12 +260,13 @@
             }
         }
 
-        // show pid (from server)
-        async function fetchPid() {
+        // show pid and platform info from server
+        async function fetchServerInfo() {
             try {
                 const res = await fetch('/api/pid');
                 const data = await res.json();
                 if (data.pid) pidDisplay.textContent = data.pid;
+                if (data.platform) platformDisplay.textContent = data.platform;
             } catch (_) { /* ignore */ }
         }
 
@@ -266,11 +293,10 @@
                 if (response.ok) {
                     // output
                     if (result.stdout && result.stdout.length > 0) {
-                        // split by newline to preserve formatting
                         const lines = result.stdout.split('\n');
                         for (let line of lines) {
                             if (line) appendLine(line, 'output');
-                            else appendLine('', 'output'); // preserve empty lines
+                            else appendLine('', 'output');
                         }
                     }
                     // stderr (if any)
@@ -281,9 +307,9 @@
                             else appendLine('', 'error');
                         }
                     }
-                    // show exit code if non-zero and no stderr (supplement)
-                    if (result.exitCode !== undefined && result.exitCode !== 0 && !result.stderr) {
-                        appendLine(`⚠️  exit code: ${result.exitCode}`, 'error');
+                    // show exit code if non-zero and no stderr
+                    if (result.exit_code !== undefined && result.exit_code !== 0 && !result.stderr) {
+                        appendLine(`⚠️  exit code: ${result.exit_code}`, 'error');
                     }
                 } else {
                     // http error (4xx/5xx)
@@ -326,10 +352,10 @@
             inputEl.focus();
         });
 
-        // fetch PID on load
+        // fetch server info on load
         window.addEventListener('load', () => {
             inputEl.focus();
-            fetchPid();
+            fetchServerInfo();
         });
 
         // extra: if user clicks anywhere on container, focus input
@@ -339,8 +365,8 @@
             }
         });
 
-        // keep pid updated (every 10s)
-        setInterval(fetchPid, 10000);
+        // keep info updated (every 10s)
+        setInterval(fetchServerInfo, 10000);
     })();
 </script>
 </body>
